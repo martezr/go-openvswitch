@@ -179,6 +179,18 @@ func (v *VSwitchGetService) Bridge(bridge string) (BridgeOptions, error) {
 	}, nil
 }
 
+// Bridge gets configuration for a bridge and returns the values through
+// a BridgeOptions struct.
+func (v *VSwitchGetService) Port(port string) (output string, errout error) {
+	// We only support the protocol option at this point.
+	args := []string{"--format=json", "get", "Interface", port, "_uuid", "name", "link_state", "ofport", "external_ids"}
+	out, err := v.v.exec(args...)
+	if err != nil {
+		return string(out), errout
+	}
+	return string(out), errout
+}
+
 // A VSwitchSetService is used in a VSwitchService to execute 'ovs-vsctl set'
 // subcommands.
 type VSwitchSetService struct {

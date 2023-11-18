@@ -18,9 +18,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/digitalocean/go-openvswitch/ovsdb"
-	"github.com/digitalocean/go-openvswitch/ovsdb/internal/jsonrpc"
 	"github.com/google/go-cmp/cmp"
+	"github.com/martezr/go-openvswitch/ovsdb"
+	"github.com/martezr/go-openvswitch/ovsdb/internal/jsonrpc"
 )
 
 func TestClientListDatabases(t *testing.T) {

@@ -862,6 +862,10 @@ func TestClientOpenFlowDumpFlows(t *testing.T) {
 						ModVLANVID(10),
 						Output(1),
 					},
+					Stats: FlowStats{
+						PacketCount: 6,
+						ByteCount:   480,
+					},
 				},
 			},
 			err: nil,
@@ -886,6 +890,10 @@ func TestClientOpenFlowDumpFlows(t *testing.T) {
 						ModVLANVID(10),
 						Output(1),
 					},
+					Stats: FlowStats{
+						PacketCount: 6,
+						ByteCount:   480,
+					},
 				},
 				{
 					Priority: 110,
@@ -896,6 +904,10 @@ func TestClientOpenFlowDumpFlows(t *testing.T) {
 					Table: 50,
 					Actions: []Action{
 						ConnectionTracking("table=51"),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
 					},
 				},
 				{
@@ -912,6 +924,10 @@ func TestClientOpenFlowDumpFlows(t *testing.T) {
 					Actions: []Action{
 						ConnectionTracking("commit,table=65"),
 					},
+					Stats: FlowStats{
+						PacketCount: 3,
+						ByteCount:   234,
+					},
 				},
 				{
 					Priority: 4040,
@@ -924,6 +940,10 @@ func TestClientOpenFlowDumpFlows(t *testing.T) {
 					Table: 65,
 					Actions: []Action{
 						Output(19),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
 					},
 				},
 				{
@@ -939,6 +959,10 @@ func TestClientOpenFlowDumpFlows(t *testing.T) {
 					Table: 12,
 					Actions: []Action{
 						Resubmit(0, 13),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
 					},
 				},
 			},
@@ -965,6 +989,10 @@ NXST_FLOW reply (xid=0x4):
 						ModVLANVID(10),
 						Output(1),
 					},
+					Stats: FlowStats{
+						PacketCount: 6,
+						ByteCount:   480,
+					},
 				},
 				{
 					Priority: 110,
@@ -975,6 +1003,10 @@ NXST_FLOW reply (xid=0x4):
 					Table: 50,
 					Actions: []Action{
 						ConnectionTracking("table=51"),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
 					},
 				},
 				{
@@ -991,6 +1023,10 @@ NXST_FLOW reply (xid=0x4):
 					Actions: []Action{
 						ConnectionTracking("commit,table=65"),
 					},
+					Stats: FlowStats{
+						PacketCount: 3,
+						ByteCount:   234,
+					},
 				},
 				{
 					Priority: 4040,
@@ -1003,6 +1039,10 @@ NXST_FLOW reply (xid=0x4):
 					Table: 65,
 					Actions: []Action{
 						Output(19),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
 					},
 				},
 				{
@@ -1018,6 +1058,10 @@ NXST_FLOW reply (xid=0x4):
 					Table: 12,
 					Actions: []Action{
 						Resubmit(0, 13),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
 					},
 				},
 			},
@@ -1058,6 +1102,128 @@ NXST_FLOW reply (xid=0x4):
 	}
 }
 
+func TestClientOpenFlowDumpFlowsWithFlowArgs(t *testing.T) {
+	tests := []struct {
+		name       string
+		table      string
+		cookie     uint64
+		cookieMask uint64
+		input      string
+		flows      string
+		want       []*Flow
+		err        error
+	}{
+		{
+			name:       "test single flow",
+			input:      "br0",
+			table:      "45",
+			cookie:     0,
+			cookieMask: 0x0,
+			flows: `NXST_FLOW reply (xid=0x4):
+ cookie=0x01, duration=9215.748s, table=45, n_packets=6, n_bytes=480, idle_age=9206, priority=820,in_port=LOCAL actions=mod_vlan_vid:10,output:1
+`,
+			want: []*Flow{
+				{
+					Priority: 820,
+					InPort:   PortLOCAL,
+					Matches:  []Match{},
+					Table:    45,
+					Cookie:   1,
+					Actions: []Action{
+						ModVLANVID(10),
+						Output(1),
+					},
+					Stats: FlowStats{
+						PacketCount: 6,
+						ByteCount:   480,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name:       "test multiple flows",
+			input:      "br0",
+			table:      "45",
+			cookie:     0,
+			cookieMask: 0x1,
+			flows: `NXST_FLOW reply (xid=0x4):
+ cookie=0x0, duration=9215.748s, table=45, n_packets=6, n_bytes=480, idle_age=9206, priority=820,in_port=LOCAL actions=mod_vlan_vid:10,output:1
+ cookie=0x0, duration=1121991.329s, table=45, n_packets=0, n_bytes=0, priority=110,ip,dl_src=f1:f2:f3:f4:f5:f6 actions=ct(table=51)
+`,
+			want: []*Flow{
+				{
+					Priority: 820,
+					InPort:   PortLOCAL,
+					Matches:  []Match{},
+					Table:    45,
+					Cookie:   0,
+					Actions: []Action{
+						ModVLANVID(10),
+						Output(1),
+					},
+					Stats: FlowStats{
+						PacketCount: 6,
+						ByteCount:   480,
+					},
+				},
+				{
+					Priority: 110,
+					Protocol: ProtocolIPv4,
+					Matches: []Match{
+						DataLinkSource("f1:f2:f3:f4:f5:f6"),
+					},
+					Table: 45,
+					Actions: []Action{
+						ConnectionTracking("table=51"),
+					},
+					Stats: FlowStats{
+						PacketCount: 0,
+						ByteCount:   0,
+					},
+				},
+			},
+			err: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := testClient([]OptionFunc{Timeout(1)}, func(cmd string, args ...string) ([]byte, error) {
+				if want, got := "ovs-ofctl", cmd; want != got {
+					t.Fatalf("incorrect command:\n- want: %v\n-  got: %v",
+						want, got)
+				}
+				filterArg := "cookie=0x0000000000000000/0xffffffffffffffff," + "table=" + tt.table
+				wantArgs := []string{
+					"--timeout=1",
+					"dump-flows",
+					string(tt.input),
+					filterArg,
+				}
+				if want, got := wantArgs, args; !reflect.DeepEqual(want, got) {
+					t.Fatalf("incorrect arguments\n- want: %v\n-  got: %v",
+						want, got)
+				}
+				return []byte(tt.flows), tt.err
+			}).OpenFlow.DumpFlowsWithFlowArgs(tt.input, &MatchFlow{Cookie: 0,
+				CookieMask: 0xffffffffffffffff,
+				Table:      45})
+			if len(tt.want) != len(got) {
+				t.Errorf("got  %d", len(got))
+				t.Errorf("want %d", len(tt.want))
+				t.Fatal("expected return value to be equal")
+			}
+			for i := range tt.want {
+				if !flowsEqual(tt.want[i], got[i]) {
+					t.Errorf("got  %+v", got[i])
+					t.Errorf("want %+v", tt.want[i])
+					t.Fatal("expected return value to be equal")
+				}
+			}
+		})
+	}
+}
+
 func TestClientOpenFlowDumpFlows15(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1083,6 +1249,10 @@ func TestClientOpenFlowDumpFlows15(t *testing.T) {
 					Actions: []Action{
 						ConnectionTracking("table=1"),
 					},
+					Stats: FlowStats{
+						PacketCount: 1127501,
+						ByteCount:   1595250938,
+					},
 				},
 			},
 			err: nil,
@@ -1106,6 +1276,10 @@ func TestClientOpenFlowDumpFlows15(t *testing.T) {
 					Actions: []Action{
 						ConnectionTracking("table=1"),
 					},
+					Stats: FlowStats{
+						PacketCount: 1127501,
+						ByteCount:   1595250938,
+					},
 				},
 				{
 					Priority: 0,
@@ -1113,6 +1287,10 @@ func TestClientOpenFlowDumpFlows15(t *testing.T) {
 					Table:    0,
 					Actions: []Action{
 						Normal(),
+					},
+					Stats: FlowStats{
+						PacketCount: 7370490,
+						ByteCount:   893401420,
 					},
 				},
 				{
@@ -1125,6 +1303,10 @@ func TestClientOpenFlowDumpFlows15(t *testing.T) {
 					Actions: []Action{
 						ConnectionTracking("commit"),
 						Normal(),
+					},
+					Stats: FlowStats{
+						PacketCount: 1068,
+						ByteCount:   388186,
 					},
 				},
 			},

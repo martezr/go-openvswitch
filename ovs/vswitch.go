@@ -179,16 +179,51 @@ func (v *VSwitchGetService) Bridge(bridge string) (BridgeOptions, error) {
 	}, nil
 }
 
+type OVSPort struct {
+	UUID        string
+	Name        string
+	LinkState   string
+	OFPort      string
+	ExternalIds struct {
+		AttachedMac     string
+		InterfaceId     string
+		InterfaceStatus string
+		VmId            string
+	}
+}
+
 // Bridge gets configuration for a bridge and returns the values through
 // a BridgeOptions struct.
-func (v *VSwitchGetService) Port(port string) (output string, errout error) {
+func (v *VSwitchGetService) Port(port string) (output OVSPort, errout error) {
 	// We only support the protocol option at this point.
 	args := []string{"--format=json", "get", "Interface", port, "_uuid", "name", "link_state", "ofport", "external_ids"}
 	out, err := v.v.exec(args...)
+	var interfaceData OVSPort
 	if err != nil {
-		return string(out), errout
+		return interfaceData, errout
 	}
-	return string(out), errout
+	interfaceOut := strings.Split(string(out), "\n")
+	interfaceData.UUID = interfaceOut[0]
+	interfaceData.Name = interfaceOut[1]
+	interfaceData.LinkState = interfaceOut[2]
+	interfaceData.OFPort = interfaceOut[3]
+	int1Data := strings.Replace(interfaceOut[4], "{", "", 1)
+	int2Data := strings.Replace(int1Data, "}", "", 1)
+	test := strings.Split(int2Data, ", ")
+	for _, tes := range test {
+		payload := strings.Split(tes, "=")
+		switch payload[0] {
+		case "attached-mac":
+			interfaceData.ExternalIds.AttachedMac = strings.Replace(payload[1], "\"", "", 2)
+		case "iface-id":
+			interfaceData.ExternalIds.InterfaceId = strings.Replace(payload[1], "\"", "", 2)
+		case "iface-status":
+			interfaceData.ExternalIds.InterfaceStatus = payload[1]
+		case "vm-id":
+			interfaceData.ExternalIds.VmId = strings.Replace(payload[1], "\"", "", 2)
+		}
+	}
+	return interfaceData, errout
 }
 
 // A VSwitchSetService is used in a VSwitchService to execute 'ovs-vsctl set'
@@ -286,6 +321,8 @@ type InterfaceOptions struct {
 	// tunneled traffic leaving this interface. Optionally it could be set to
 	// "flow" which expects the flow to set tunnel ID.
 	Key string
+
+	ExternalIds map[string]string
 }
 
 // slice creates a string slice containing any non-zero option values from the
@@ -325,6 +362,18 @@ func (i InterfaceOptions) slice() []string {
 
 	if i.Key != "" {
 		s = append(s, fmt.Sprintf("options:key=%s", i.Key))
+	}
+
+	if len(i.ExternalIds) > 0 {
+		var output string
+		var test []string
+		for te, inf := range i.ExternalIds {
+			dee := fmt.Sprintf("%s=%s", te, inf)
+			test = append(test, dee)
+
+		}
+		output = strings.Join(test, ",")
+		s = append(s, fmt.Sprintf("external_ids:%s", output))
 	}
 
 	return s

@@ -132,8 +132,8 @@ func (v *VSwitchService) SetFailMode(bridge string, mode FailMode) error {
 
 // SetController sets the controller for this bridge so that ovs-ofctl
 // can use this address to communicate.
-func (v *VSwitchService) SetController(bridge string, address string, ofprotocols []string) error {
-	_, err := v.exec("set-controller", bridge, address, fmt.Sprintf("protocols=%s", strings.Join(ofprotocols, ",")))
+func (v *VSwitchService) SetController(bridge string, address string) error {
+	_, err := v.exec("set-controller", bridge, address)
 	return err
 }
 

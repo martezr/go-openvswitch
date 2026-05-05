@@ -153,7 +153,7 @@ func TestClientVSwitchSetControllerOK(t *testing.T) {
 				want, got)
 		}
 
-		wantArgs := []string{"--timeout=1", "set-controller", string(bridge), address, "protocols=OpenFlow13"}
+		wantArgs := []string{"--timeout=1", "set-controller", string(bridge), address}
 		if want, got := wantArgs, args; !reflect.DeepEqual(want, got) {
 			t.Fatalf("incorrect arguments\n- want: %v\n-  got: %v",
 				want, got)
@@ -162,7 +162,7 @@ func TestClientVSwitchSetControllerOK(t *testing.T) {
 		return nil, nil
 	})
 
-	if err := c.VSwitch.SetController(bridge, address, []string{"OpenFlow13"}); err != nil {
+	if err := c.VSwitch.SetController(bridge, address); err != nil {
 		t.Fatalf("unexpected error for Client.VSwitch.SetController: %v", err)
 	}
 }

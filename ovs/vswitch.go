@@ -132,8 +132,8 @@ func (v *VSwitchService) SetFailMode(bridge string, mode FailMode) error {
 
 // SetController sets the controller for this bridge so that ovs-ofctl
 // can use this address to communicate.
-func (v *VSwitchService) SetController(bridge string, address string) error {
-	_, err := v.exec("set-controller", bridge, address)
+func (v *VSwitchService) SetController(bridge string, address string, ofprotocols []string) error {
+	_, err := v.exec("set-controller", bridge, address, fmt.Sprintf("protocols=%s", strings.Join(ofprotocols, ",")))
 	return err
 }
 
@@ -377,4 +377,97 @@ func (i InterfaceOptions) slice() []string {
 	}
 
 	return s
+}
+
+type MirrorOptions struct {
+	Name           string
+	SelectAll      bool
+	SelectSrcPorts []string
+	SelectDstPorts []string
+	OutputPort     string
+}
+
+func (v *VSwitchService) AddMirror(bridge string, opts MirrorOptions) error {
+	if opts.Name == "" || opts.OutputPort == "" {
+		return fmt.Errorf("mirror name and output port are required")
+	}
+
+	args := []string{"--"}
+
+	// Add source ports if specified
+	for i, p := range opts.SelectSrcPorts {
+		args = append(args,
+			fmt.Sprintf("--id=@src%d", i),
+			"get", "port", p,
+		)
+	}
+
+	// Add destination ports if specified
+	for i, p := range opts.SelectDstPorts {
+		args = append(args,
+			fmt.Sprintf("--id=@dst%d", i),
+			"get", "port", p,
+		)
+	}
+
+	// Output port
+	args = append(args,
+		"--id=@out",
+		"get", "port", opts.OutputPort,
+	)
+
+	// Create mirror
+	mirrorCmd := []string{
+		"--id=@m", "create", "mirror",
+		fmt.Sprintf("name=%s", opts.Name),
+	}
+
+	if opts.SelectAll {
+		mirrorCmd = append(mirrorCmd, "select-all=true")
+	} else {
+		if len(opts.SelectSrcPorts) > 0 {
+			srcRefs := []string{}
+			for i := range opts.SelectSrcPorts {
+				srcRefs = append(srcRefs, fmt.Sprintf("@src%d", i))
+			}
+			mirrorCmd = append(mirrorCmd,
+				fmt.Sprintf("select-src-port=%s", strings.Join(srcRefs, ",")))
+		}
+
+		if len(opts.SelectDstPorts) > 0 {
+			dstRefs := []string{}
+			for i := range opts.SelectDstPorts {
+				dstRefs = append(dstRefs, fmt.Sprintf("@dst%d", i))
+			}
+			mirrorCmd = append(mirrorCmd,
+				fmt.Sprintf("select-dst-port=%s", strings.Join(dstRefs, ",")))
+		}
+	}
+
+	mirrorCmd = append(mirrorCmd, "output-port=@out")
+
+	args = append(args, mirrorCmd...)
+
+	// Attach mirror to bridge
+	args = append(args,
+		"--", "set", "bridge", bridge, "mirrors=@m",
+	)
+
+	_, err := v.exec(args...)
+	return err
+}
+
+func (v *VSwitchService) ClearMirrors(bridge string) error {
+	_, err := v.exec("clear", "bridge", bridge, "mirrors")
+	return err
+}
+
+func (v *VSwitchService) EnsureMirrorPort(bridge, port string) error {
+	if err := v.AddPort(bridge, port); err != nil {
+		return err
+	}
+
+	return v.Set.Interface(port, InterfaceOptions{
+		Type: "internal",
+	})
 }
